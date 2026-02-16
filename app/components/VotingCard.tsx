@@ -1,6 +1,5 @@
 "use client"
 import { useState, useEffect } from "react"
-import { createSupabaseBrowserClient } from "../../src/lib/supabase/client"
 
 interface Caption {
   id: string
@@ -22,17 +21,17 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [currentCaptionIndex, setCurrentCaptionIndex] = useState(0)
   const [userVote, setUserVote] = useState<number | null>(null)
-  const [isVoting, setIsVoting] = useState(false)
   const [showUndo, setShowUndo] = useState(false)
   const [lastVote, setLastVote] = useState<number | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const supabase = createSupabaseBrowserClient()
+  // Store votes locally in memory (resets on page refresh)
+  const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
 
   const currentImage = images[currentIndex]
   const currentCaption = currentImage?.captions[currentCaptionIndex]
   const nextImage = images[currentIndex + 1]
 
+  // Preload next image for smooth transitions
   useEffect(() => {
     if (nextImage?.url) {
       const img = new Image()
@@ -40,142 +39,61 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
     }
   }, [nextImage])
 
+  // Load vote from local state when caption changes
   useEffect(() => {
     if (!currentCaption) return
+    
+    const existingVote = localVotes[currentCaption.id]
+    setUserVote(existingVote || null)
+    setShowUndo(false)
+  }, [currentCaption?.id, localVotes])
 
-    const loadUserVote = async () => {
-      setIsLoading(true)
-      try {
-        const { data, error } = await supabase
-          .from("caption_votes")
-          .select("vote_value")
-          .eq("caption_id", currentCaption.id)
-          .eq("profile_id", userId)
-          .maybeSingle()
+  const handleVote = (vote: number) => {
+    if (!currentCaption) return
 
-        if (error) {
-          console.error("Error loading vote:", error)
-          setIsLoading(false)
-          return
-        }
-
-        if (data?.vote_value) {
-          setTimeout(() => {
-            handleNext()
-          }, 100)
-        } else {
-          setUserVote(null)
-          setShowUndo(false)
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.error("Error in loadUserVote:", error)
-        setIsLoading(false)
-      }
-    }
-
-    loadUserVote()
-  }, [currentCaption?.id, userId, supabase])
-
-  const handleVote = async (vote: number) => {
-    if (!currentCaption || isVoting) return
-
-    setIsVoting(true)
     setLastVote(userVote)
-
-    try {
-      const { data: existingVote } = await supabase
-        .from("caption_votes")
-        .select("id, vote_value")
-        .eq("caption_id", currentCaption.id)
-        .eq("profile_id", userId)
-        .maybeSingle()
-
-      if (existingVote) {
-        const { error } = await supabase
-          .from("caption_votes")
-          .update({ 
-            vote_value: vote,
-            modified_datetime_utc: new Date().toISOString()
-          })
-          .eq("id", existingVote.id)
-
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from("caption_votes")
-          .insert({
-            profile_id: userId,
-            caption_id: currentCaption.id,
-            vote_value: vote,
-            created_datetime_utc: new Date().toISOString(),
-            modified_datetime_utc: new Date().toISOString()
-          })
-
-        if (error) throw error
-      }
-
-      setUserVote(vote)
-      setShowUndo(true)
-      
-      setTimeout(() => {
-        setShowUndo(false)
-        handleNext()
-      }, 800)
-    } catch (error: any) {
-      console.error("Error voting:", error)
-      alert(`Failed to record vote: ${error.message}`)
-      setIsVoting(false)
-    }
+    setUserVote(vote)
+    
+    // Save vote locally
+    setLocalVotes(prev => ({
+      ...prev,
+      [currentCaption.id]: vote
+    }))
+    
+    setShowUndo(true)
+    
+    // Auto-advance after voting
+    setTimeout(() => {
+      setShowUndo(false)
+      handleNext()
+    }, 800)
   }
 
-  const handleUndo = async () => {
-    if (!currentCaption || isVoting) return
+  const handleUndo = () => {
+    if (!currentCaption) return
 
-    setIsVoting(true)
-
-    try {
-      if (lastVote === null) {
-        const { error } = await supabase
-          .from("caption_votes")
-          .delete()
-          .eq("caption_id", currentCaption.id)
-          .eq("profile_id", userId)
-
-        if (error) throw error
-      } else {
-        const { data: existingVote } = await supabase
-          .from("caption_votes")
-          .select("id")
-          .eq("caption_id", currentCaption.id)
-          .eq("profile_id", userId)
-          .single()
-
-        if (existingVote) {
-          const { error } = await supabase
-            .from("caption_votes")
-            .update({ 
-              vote_value: lastVote,
-              modified_datetime_utc: new Date().toISOString()
-            })
-            .eq("id", existingVote.id)
-
-          if (error) throw error
-        }
-      }
-
+    if (lastVote === null) {
+      // Remove vote
+      setLocalVotes(prev => {
+        const newVotes = { ...prev }
+        delete newVotes[currentCaption.id]
+        return newVotes
+      })
+      setUserVote(null)
+    } else {
+      // Restore previous vote
+      setLocalVotes(prev => ({
+        ...prev,
+        [currentCaption.id]: lastVote
+      }))
       setUserVote(lastVote)
-      setShowUndo(false)
-    } catch (error) {
-      console.error("Error undoing vote:", error)
-    } finally {
-      setIsVoting(false)
     }
+    
+    setShowUndo(false)
   }
 
   const handleNext = () => {
     setIsTransitioning(true)
-    setIsVoting(false)
 
     setTimeout(() => {
       if (currentCaptionIndex < currentImage.captions.length - 1) {
@@ -198,16 +116,6 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
   }
 
   const isLastItem = currentIndex === images.length - 1 && currentCaptionIndex === currentImage.captions.length - 1
-
-  if (isLoading) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center text-gray-500 py-20">
-          <div className="animate-pulse">Loading...</div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className={`max-w-2xl mx-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-98' : 'opacity-100 scale-100'}`}>
@@ -237,8 +145,7 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
         {/* Downvote */}
         <button
           onClick={() => handleVote(-1)}
-          disabled={isVoting}
-          className={`group relative w-16 h-16 rounded-full transition-all duration-200 disabled:opacity-50 ${
+          className={`group relative w-16 h-16 rounded-full transition-all duration-200 ${
             userVote === -1
               ? 'bg-red-500 shadow-lg shadow-red-500/50 scale-110'
               : 'bg-gray-800 hover:bg-gray-700 hover:scale-110'
@@ -251,7 +158,6 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
         {showUndo && (
           <button
             onClick={handleUndo}
-            disabled={isVoting}
             className="px-4 py-2 bg-gray-800 text-white text-sm rounded-full hover:bg-gray-700 transition-all animate-fade-in"
           >
             ↩ Undo
@@ -261,8 +167,7 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
         {/* Upvote */}
         <button
           onClick={() => handleVote(1)}
-          disabled={isVoting}
-          className={`group relative w-16 h-16 rounded-full transition-all duration-200 disabled:opacity-50 ${
+          className={`group relative w-16 h-16 rounded-full transition-all duration-200 ${
             userVote === 1
               ? 'bg-green-500 shadow-lg shadow-green-500/50 scale-110'
               : 'bg-gray-800 hover:bg-gray-700 hover:scale-110'
