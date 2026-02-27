@@ -24,12 +24,31 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
   const [showUndo, setShowUndo] = useState(false)
   const [lastVote, setLastVote] = useState<number | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  // Store votes locally in memory (resets on page refresh)
   const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
 
-  const currentImage = images[currentIndex]
+  // Filter images to only include those with valid captions
+  const validImages = images.filter(img => {
+    if (!img.captions || !Array.isArray(img.captions)) return false
+    const validCaptions = img.captions.filter(cap => 
+      cap && 
+      cap.content && 
+      typeof cap.content === 'string' && 
+      cap.content.trim().length > 0
+    )
+    return validCaptions.length > 0
+  }).map(img => ({
+    ...img,
+    captions: img.captions.filter(cap => 
+      cap && 
+      cap.content && 
+      typeof cap.content === 'string' && 
+      cap.content.trim().length > 0
+    )
+  }))
+
+  const currentImage = validImages[currentIndex]
   const currentCaption = currentImage?.captions[currentCaptionIndex]
-  const nextImage = images[currentIndex + 1]
+  const nextImage = validImages[currentIndex + 1]
 
   // Preload next image for smooth transitions
   useEffect(() => {
@@ -98,12 +117,23 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
     setTimeout(() => {
       if (currentCaptionIndex < currentImage.captions.length - 1) {
         setCurrentCaptionIndex(currentCaptionIndex + 1)
-      } else if (currentIndex < images.length - 1) {
+      } else if (currentIndex < validImages.length - 1) {
         setCurrentIndex(currentIndex + 1)
         setCurrentCaptionIndex(0)
       }
       setIsTransitioning(false)
     }, 300)
+  }
+
+  // Show debug info if no valid images
+  if (validImages.length === 0) {
+    console.log('No valid images found. Original images:', images)
+    return (
+      <div className="text-center text-white py-20">
+        <p className="text-2xl mb-2">No images with captions available</p>
+        <p className="text-gray-400">Upload some images to get started!</p>
+      </div>
+    )
   }
 
   if (!currentImage || !currentCaption) {
@@ -115,14 +145,14 @@ export default function VotingCard({ images, userId }: VotingCardProps) {
     )
   }
 
-  const isLastItem = currentIndex === images.length - 1 && currentCaptionIndex === currentImage.captions.length - 1
+  const isLastItem = currentIndex === validImages.length - 1 && currentCaptionIndex === currentImage.captions.length - 1
 
   return (
     <div className={`max-w-2xl mx-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-98' : 'opacity-100 scale-100'}`}>
       {/* Progress */}
       <div className="mb-4 text-center">
         <span className="text-gray-500 text-sm">
-          {currentIndex + 1} / {images.length}
+          {currentIndex + 1} / {validImages.length}
         </span>
       </div>
 

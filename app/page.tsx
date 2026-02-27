@@ -22,12 +22,13 @@ export default async function Page() {
 
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, url, captions(id, content)")
+    .select("id, url, captions!inner(id, content)") // Added !inner to require captions
     .eq("is_public", true)
     .order("created_datetime_utc", { ascending: false })
-    .limit(20)
+    .limit(50) // Increased limit to get more images with captions
 
   if (error) {
+    console.error("Database error:", error)
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <p className="text-red-500 text-lg">Error fetching images: {error.message}</p>
@@ -35,7 +36,15 @@ export default async function Page() {
     )
   }
 
-  const imagesWithCaptions = images?.filter(img => img.captions && img.captions.length > 0) || []
+  // Filter to only show images that have at least one caption
+  const imagesWithCaptions = images?.filter(img => 
+    img.captions && 
+    Array.isArray(img.captions) && 
+    img.captions.length > 0 &&
+    img.captions.some((caption: any) => caption.content && caption.content.trim() !== '')
+  ) || []
+
+  console.log(`Found ${imagesWithCaptions.length} images with captions`)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
@@ -62,8 +71,15 @@ export default async function Page() {
         {imagesWithCaptions.length > 0 ? (
           <VotingCard images={imagesWithCaptions} userId={session.user.id} />
         ) : (
-          <div className="text-center text-white">
-            <p className="text-xl">No captions available yet. Check back soon!</p>
+          <div className="text-center text-white py-20">
+            <p className="text-xl mb-2">No captions available yet</p>
+            <p className="text-gray-400 mb-6">Upload an image to get started!</p>
+            <Link
+              href="/upload"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Upload Image
+            </Link>
           </div>
         )}
       </div>
