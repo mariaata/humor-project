@@ -16,7 +16,6 @@ export default function ImageUpload() {
     const selectedFile = e.target.files?.[0]
     if (!selectedFile) return
 
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic']
     if (!validTypes.includes(selectedFile.type)) {
       setError('Invalid file type. Please upload a JPEG, PNG, WebP, GIF, or HEIC image.')
@@ -28,7 +27,6 @@ export default function ImageUpload() {
     setCaptions([])
     setImageId(null)
 
-    // Create preview
     const reader = new FileReader()
     reader.onloadend = () => {
       setPreview(reader.result as string)
@@ -43,7 +41,6 @@ export default function ImageUpload() {
     setError(null)
 
     try {
-      // Get access token from Supabase
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         throw new Error('Not authenticated')
@@ -51,7 +48,6 @@ export default function ImageUpload() {
 
       const token = session.access_token
 
-      // Step 1: Generate presigned URL
       console.log('Step 1: Generating presigned URL...')
       const presignedResponse = await fetch('https://api.almostcrackd.ai/pipeline/generate-presigned-url', {
         method: 'POST',
@@ -72,7 +68,6 @@ export default function ImageUpload() {
       const { presignedUrl, cdnUrl } = await presignedResponse.json()
       console.log('Presigned URL generated:', cdnUrl)
 
-      // Step 2: Upload image to presigned URL
       console.log('Step 2: Uploading image...')
       const uploadResponse = await fetch(presignedUrl, {
         method: 'PUT',
@@ -87,7 +82,6 @@ export default function ImageUpload() {
       }
       console.log('Image uploaded successfully')
 
-      // Step 3: Register image URL
       console.log('Step 3: Registering image...')
       const registerResponse = await fetch('https://api.almostcrackd.ai/pipeline/upload-image-from-url', {
         method: 'POST',
@@ -110,7 +104,6 @@ export default function ImageUpload() {
       setImageId(imageId)
       console.log('Image registered with ID:', imageId)
 
-      // Step 4: Generate captions
       console.log('Step 4: Generating captions...')
       const captionsResponse = await fetch('https://api.almostcrackd.ai/pipeline/generate-captions', {
         method: 'POST',
@@ -169,7 +162,7 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* Error Message */}
+        {/* Possible error check */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg">
             <p className="text-red-400 text-sm">{error}</p>
@@ -195,7 +188,7 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* Captions Display */}
+        {/* To Display Captions */}
         {captions.length > 0 && (
           <div className="mt-8">
             <h3 className="text-xl font-bold text-white mb-4">Generated Captions:</h3>
@@ -212,7 +205,7 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* Success Message */}
+        {/* If Success */}
         {imageId && captions.length > 0 && (
           <div className="mt-6 p-4 bg-green-500/20 border border-green-500 rounded-lg">
             <p className="text-green-400 text-sm">
