@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../src/lib/supabase/server"
 import LoginButton from "./components/LoginButton"
 import SignOutButton from "./components/SignOutButton"
 import VotingCard from "./components/VotingCard"
+import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -44,7 +45,15 @@ export default async function Page() {
           <div>
             <h1 className="text-xl font-semibold text-white tracking-tight">Humor Feed</h1>
           </div>
-          <SignOutButton />
+          <div className="flex gap-4 items-center">
+            <Link
+              href="/upload"
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
+            >
+              + Upload
+            </Link>
+            <SignOutButton />
+          </div>
         </div>
       </div>
 
