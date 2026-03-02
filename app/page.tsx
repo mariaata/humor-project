@@ -53,11 +53,9 @@ export default async function Page() {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Top nav */}
       <div className="sticky top-0 bg-black/80 backdrop-blur-2xl border-b border-white/5 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
                 <span className="text-xl">😂</span>
@@ -65,7 +63,6 @@ export default async function Page() {
               <h1 className="text-lg font-semibold text-white">Humor Feed</h1>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-4">
               <Link
                 href="/upload"
@@ -79,7 +76,6 @@ export default async function Page() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="px-4 py-6">
         {imagesWithCaptions.length > 0 ? (
           <MainContent images={imagesWithCaptions} userId={session.user.id} />

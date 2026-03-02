@@ -138,7 +138,7 @@ export default function ImageUpload() {
       <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700">
         <h2 className="text-2xl font-bold text-white mb-6">Upload Image</h2>
 
-        {/* File Input */}
+        
         <div className="mb-6">
           <label className="block mb-2 text-sm font-medium text-gray-300">
             Choose an image
@@ -151,7 +151,7 @@ export default function ImageUpload() {
           />
         </div>
 
-        {/* Preview */}
+        
         {preview && (
           <div className="mb-6">
             <img
@@ -162,14 +162,13 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* Possible error check */}
+        
         {error && (
           <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-lg">
             <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
-        {/* Upload Button */}
         <button
           onClick={handleUpload}
           disabled={!file || isUploading}
@@ -178,7 +177,6 @@ export default function ImageUpload() {
           {isUploading ? 'Processing...' : 'Upload & Generate Captions'}
         </button>
 
-        {/* Loading State */}
         {isUploading && (
           <div className="mt-4 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -188,7 +186,6 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* To Display Captions */}
         {captions.length > 0 && (
           <div className="mt-8">
             <h3 className="text-xl font-bold text-white mb-4">Generated Captions:</h3>
@@ -205,7 +202,6 @@ export default function ImageUpload() {
           </div>
         )}
 
-        {/* If Success */}
         {imageId && captions.length > 0 && (
           <div className="mt-6 p-4 bg-green-500/20 border border-green-500 rounded-lg">
             <p className="text-green-400 text-sm">

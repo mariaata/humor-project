@@ -13,7 +13,6 @@ export default function MainContent({ images, userId }: MainContentProps) {
 
   return (
     <>
-      {/* View Mode Toggle - positioned in parent */}
       <div className="flex justify-center mb-6">
         <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1">
           <button
@@ -39,7 +38,6 @@ export default function MainContent({ images, userId }: MainContentProps) {
         </div>
       </div>
 
-      {/* Content */}
       {viewMode === 'swipe' ? (
         <VotingCard images={images} userId={userId} />
       ) : (

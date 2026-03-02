@@ -48,15 +48,20 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) return
+      if (!session?.user?.id) {
+        alert("You must be logged in to vote")
+        return
+      }
 
       if (newVote === 0) {
         // Remove vote
-        await supabase
+        const { error } = await supabase
           .from("caption_votes")
           .delete()
           .eq("caption_id", captionId)
           .eq("profile_id", session.user.id)
+
+        if (error) throw error
       } else {
         // Check if vote exists
         const { data: existingVote } = await supabase
@@ -68,16 +73,18 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
 
         if (existingVote) {
           // Update
-          await supabase
+          const { error } = await supabase
             .from("caption_votes")
             .update({ 
               vote_value: newVote,
               modified_datetime_utc: new Date().toISOString()
             })
             .eq("id", existingVote.id)
+
+          if (error) throw error
         } else {
           // Insert
-          await supabase
+          const { error } = await supabase
             .from("caption_votes")
             .insert({
               profile_id: session.user.id,
@@ -86,25 +93,26 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
               created_datetime_utc: new Date().toISOString(),
               modified_datetime_utc: new Date().toISOString()
             })
+
+          if (error) throw error
         }
       }
 
-      console.log("✅ Vote saved")
-    } catch (error) {
+      console.log("✅ Vote saved to database")
+    } catch (error: any) {
       console.error("❌ Error saving vote:", error)
+      alert(`Failed to save vote: ${error.message}`)
     }
   }
 
+  // Calculate stats
   const upvoted = Object.values(votes).filter(v => v === 1).length
   const downvoted = Object.values(votes).filter(v => v === -1).length
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/*  */}
-      <div className="mb-8 flex gap-6 justify-center">
-        <div className="text-center">
-          
-        </div>
+      
+      <div className="mb-8 flex gap-8 justify-center">
         <div className="text-center">
           <p className="text-3xl font-bold text-green-400">{upvoted}</p>
           <p className="text-sm text-gray-400">Liked</p>
@@ -115,7 +123,7 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
         </div>
       </div>
 
-      {/* Grid */}
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {allCards.map((card) => {
           const userVote = votes[card.captionId] || 0
@@ -129,7 +137,7 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
                 'border-white/10'
               }`}
             >
-              {/* Image */}
+              
               <div className="relative aspect-video">
                 <img
                   src={card.imageUrl}
@@ -138,13 +146,13 @@ export default function GalleryView({ images, userId }: GalleryViewProps) {
                 />
               </div>
 
-              {/* Caption */}
+             
               <div className="p-4">
                 <p className="text-white text-sm leading-relaxed mb-4 line-clamp-3">
                   {card.content}
                 </p>
 
-                {/* Vote buttons */}
+                
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleVote(card.captionId, 1)}

@@ -23,7 +23,6 @@ export default async function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black">
-      {/* Top navigation */}
       <div className="fixed top-0 left-0 right-0 bg-black/50 backdrop-blur-md border-b border-gray-800/50 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-xl font-semibold text-white tracking-tight">Upload Image</h1>
@@ -36,7 +35,6 @@ export default async function UploadPage() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="pt-24 px-4 pb-8">
         <ImageUpload />
       </div>
