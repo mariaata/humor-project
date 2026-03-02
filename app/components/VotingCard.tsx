@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 interface Caption {
   id: string
@@ -18,207 +18,155 @@ interface VotingCardProps {
 }
 
 export default function VotingCard({ images, userId }: VotingCardProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [currentCaptionIndex, setCurrentCaptionIndex] = useState(0)
-  const [userVote, setUserVote] = useState<number | null>(null)
-  const [showUndo, setShowUndo] = useState(false)
-  const [lastVote, setLastVote] = useState<number | null>(null)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [localVotes, setLocalVotes] = useState<Record<string, number>>({})
-
-  // Filter images to only include those with valid captions
-  const validImages = images.filter(img => {
-    if (!img.captions || !Array.isArray(img.captions)) return false
-    const validCaptions = img.captions.filter(cap => 
-      cap && 
-      cap.content && 
-      typeof cap.content === 'string' && 
-      cap.content.trim().length > 0
+  const allCaptions = useMemo(() => {
+    const flattened = images.flatMap(image =>
+      image.captions
+        .filter(caption => caption?.content?.trim())
+        .map(caption => ({
+          captionId: caption.id,
+          content: caption.content,
+          imageUrl: image.url,
+          imageId: image.id
+        }))
     )
-    return validCaptions.length > 0
-  }).map(img => ({
-    ...img,
-    captions: img.captions.filter(cap => 
-      cap && 
-      cap.content && 
-      typeof cap.content === 'string' && 
-      cap.content.trim().length > 0
-    )
-  }))
-
-  const currentImage = validImages[currentIndex]
-  const currentCaption = currentImage?.captions[currentCaptionIndex]
-  const nextImage = validImages[currentIndex + 1]
-
-  // Preload next image for smooth transitions
-  useEffect(() => {
-    if (nextImage?.url) {
-      const img = new Image()
-      img.src = nextImage.url
-    }
-  }, [nextImage])
-
-  // Load vote from local state when caption changes
-  useEffect(() => {
-    if (!currentCaption) return
     
-    const existingVote = localVotes[currentCaption.id]
-    setUserVote(existingVote || null)
-    setShowUndo(false)
-  }, [currentCaption?.id, localVotes])
+    return flattened.sort(() => Math.random() - 0.5)
+  }, [images])
+
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [userVote, setUserVote] = useState<number | null>(null)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [voteHistory, setVoteHistory] = useState<Array<{index: number, vote: number | null}>>([])
+
+  const currentCard = allCaptions[currentIndex]
+  const nextCard = allCaptions[currentIndex + 1]
+
+  useEffect(() => {
+    if (nextCard?.imageUrl) {
+      const img = new Image()
+      img.src = nextCard.imageUrl
+    }
+  }, [nextCard])
+
+  useEffect(() => {
+    setUserVote(null)
+  }, [currentIndex])
 
   const handleVote = (vote: number) => {
-    if (!currentCaption) return
+    if (!currentCard) return
 
-    setLastVote(userVote)
     setUserVote(vote)
     
-    // Save vote locally
-    setLocalVotes(prev => ({
-      ...prev,
-      [currentCaption.id]: vote
-    }))
+    setVoteHistory(prev => [...prev, { index: currentIndex, vote }])
     
-    setShowUndo(true)
-    
-    // Auto-advance after voting
     setTimeout(() => {
-      setShowUndo(false)
-      handleNext()
-    }, 800)
-  }
-
-  const handleUndo = () => {
-    if (!currentCaption) return
-
-    if (lastVote === null) {
-      // Remove vote
-      setLocalVotes(prev => {
-        const newVotes = { ...prev }
-        delete newVotes[currentCaption.id]
-        return newVotes
-      })
-      setUserVote(null)
-    } else {
-      // Restore previous vote
-      setLocalVotes(prev => ({
-        ...prev,
-        [currentCaption.id]: lastVote
-      }))
-      setUserVote(lastVote)
-    }
-    
-    setShowUndo(false)
-  }
-
-  const handleNext = () => {
-    setIsTransitioning(true)
-
-    setTimeout(() => {
-      if (currentCaptionIndex < currentImage.captions.length - 1) {
-        setCurrentCaptionIndex(currentCaptionIndex + 1)
-      } else if (currentIndex < validImages.length - 1) {
+      setIsTransitioning(true)
+      setTimeout(() => {
         setCurrentIndex(currentIndex + 1)
-        setCurrentCaptionIndex(0)
-      }
+        setIsTransitioning(false)
+      }, 250)
+    }, 400)
+  }
+
+  const handleBack = () => {
+    if (voteHistory.length === 0) return
+    
+    setIsTransitioning(true)
+    setTimeout(() => {
+      const newHistory = [...voteHistory]
+      newHistory.pop()
+      setVoteHistory(newHistory)
+      
+      setCurrentIndex(currentIndex - 1)
       setIsTransitioning(false)
-    }, 300)
+    }, 250)
   }
 
-  // Show debug info if no valid images
-  if (validImages.length === 0) {
-    console.log('No valid images found. Original images:', images)
+  if (allCaptions.length === 0) {
     return (
       <div className="text-center text-white py-20">
-        <p className="text-2xl mb-2">No images with captions available</p>
-        <p className="text-gray-400">Upload some images to get started!</p>
+        <p className="text-gray-400">No images with captions available</p>
       </div>
     )
   }
 
-  if (!currentImage || !currentCaption) {
+  if (!currentCard || currentIndex >= allCaptions.length) {
     return (
-      <div className="text-center text-white py-20">
-        <p className="text-2xl mb-2">🎉 All done!</p>
-        <p className="text-gray-400">You've reviewed all available captions</p>
+      <div className="text-center py-20">
+        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <span className="text-4xl">🎉</span>
+        </div>
+        <p className="text-xl text-white mb-1">All done!</p>
+        <p className="text-gray-400 text-sm">You've reviewed all {allCaptions.length} captions</p>
       </div>
     )
   }
 
-  const isLastItem = currentIndex === validImages.length - 1 && currentCaptionIndex === currentImage.captions.length - 1
+  const canGoBack = currentIndex > 0 && voteHistory.length > 0
 
   return (
-    <div className={`max-w-2xl mx-auto transition-all duration-300 ${isTransitioning ? 'opacity-0 scale-98' : 'opacity-100 scale-100'}`}>
-      {/* Progress */}
+    <div className={`max-w-2xl mx-auto transition-all duration-250 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+      {/*  */}
       <div className="mb-4 text-center">
-        <span className="text-gray-500 text-sm">
-          {currentIndex + 1} / {validImages.length}
-        </span>
+    
       </div>
 
-      {/* Image with caption */}
-      <div className="relative rounded-2xl overflow-hidden shadow-2xl mb-6 bg-black">
-        <img
-          src={currentImage.url}
-          alt="Meme"
-          className="w-full max-h-[65vh] object-contain"
-        />
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent pt-16 pb-6 px-6">
-          <p className="text-white text-lg sm:text-xl text-center font-medium leading-relaxed">
-            {currentCaption.content}
+      {/*  */}
+      <div className="bg-white/5 rounded-3xl overflow-hidden backdrop-blur-sm border border-white/10 shadow-2xl mb-4">
+        {/*  */}
+        <div className="relative">
+          <img
+            src={currentCard.imageUrl}
+            alt="Meme"
+            className="w-full max-h-[50vh] object-contain bg-black"
+          />
+        </div>
+
+        <div className="p-5">
+          <p className="text-white text-lg text-center leading-relaxed font-light">
+            {currentCard.content}
           </p>
         </div>
       </div>
 
-      {/* Voting interface */}
-      <div className="flex items-center justify-center gap-4 mb-4">
-        {/* Downvote */}
+      <div className="flex items-center justify-center gap-4 mb-3">
         <button
           onClick={() => handleVote(-1)}
-          className={`group relative w-16 h-16 rounded-full transition-all duration-200 ${
+          disabled={userVote !== null}
+          className={`group relative w-16 h-16 rounded-full transition-all duration-200 disabled:opacity-50 ${
             userVote === -1
-              ? 'bg-red-500 shadow-lg shadow-red-500/50 scale-110'
-              : 'bg-gray-800 hover:bg-gray-700 hover:scale-110'
+              ? 'bg-red-500 shadow-lg shadow-red-500/30 scale-110'
+              : 'bg-white/10 hover:bg-white/20'
           }`}
         >
-          <span className="text-3xl">👎</span>
+          <span className="text-2xl">👎</span>
         </button>
 
-        {/* Undo (appears between buttons) */}
-        {showUndo && (
-          <button
-            onClick={handleUndo}
-            className="px-4 py-2 bg-gray-800 text-white text-sm rounded-full hover:bg-gray-700 transition-all animate-fade-in"
-          >
-            ↩ Undo
-          </button>
-        )}
-
-        {/* Upvote */}
         <button
           onClick={() => handleVote(1)}
-          className={`group relative w-16 h-16 rounded-full transition-all duration-200 ${
+          disabled={userVote !== null}
+          className={`group relative w-16 h-16 rounded-full transition-all duration-200 disabled:opacity-50 ${
             userVote === 1
-              ? 'bg-green-500 shadow-lg shadow-green-500/50 scale-110'
-              : 'bg-gray-800 hover:bg-gray-700 hover:scale-110'
+              ? 'bg-green-500 shadow-lg shadow-green-500/30 scale-110'
+              : 'bg-white/10 hover:bg-white/20'
           }`}
         >
-          <span className="text-3xl">👍</span>
+          <span className="text-2xl">👍</span>
         </button>
       </div>
 
-      {/* Next button */}
+      {/* Back button */}
       <div className="text-center">
         <button
-          onClick={handleNext}
-          disabled={isLastItem}
+          onClick={handleBack}
+          disabled={!canGoBack}
           className={`px-6 py-2 text-sm rounded-full font-medium transition-all ${
-            isLastItem
-              ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+            !canGoBack
+              ? 'bg-white/5 text-gray-600 cursor-not-allowed'
+              : 'bg-white/10 text-gray-300 hover:bg-white/20'
           }`}
         >
-          {isLastItem ? 'No more' : 'Skip →'}
+          ← Back
         </button>
       </div>
     </div>
